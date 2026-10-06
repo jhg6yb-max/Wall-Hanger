@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import Module from '../vendor/manifold.js';import {buildModel,positionArches} from '../src/geometry.js';
+const k=await Module();k.setup();
+function image(n=96){const labels=new Int8Array(n*n);labels.fill(-1);for(let y=5;y<n-5;y++)for(let x=8;x<n-8;x++)labels[y*n+x]=(x<n/2?0:1);return{labels,n,palette:['#111111','#ED3434'],size:100,thickness:3,mount:{auto:true}};}
+function checkMesh(p){const e=new Map();for(let i=0;i<p.triangles.length;i+=3){const t=[p.triangles[i],p.triangles[i+1],p.triangles[i+2]];for(let j=0;j<3;j++){const a=t[j],b=t[(j+1)%3],key=a<b?a+','+b:b+','+a;e.set(key,(e.get(key)||0)+1);}}assert.ok([...e.values()].every(v=>v===2),'every mesh edge must have two incident triangles');}
+test('two-color face and arches produce closed, nonoverlapping volumes',()=>{const input=image();const m=buildModel(k,input);assert.equal(m.parts.length,2);m.parts.forEach(checkMesh);assert.equal(m.components,1);assert.ok(m.bounds.max[2]>10);assert.ok(m.placement.balanced);const outlineArea=(input.n-10)*(input.n-16)*(input.size/input.n)**2;assert.ok(m.volume>outlineArea*3);assert.ok(m.volume<outlineArea*3+400);});
+test('one-color silhouette exports successfully',()=>{const input=image();for(let i=0;i<input.labels.length;i++)if(input.labels[i]>=0)input.labels[i]=0;input.palette=['#444444'];const m=buildModel(k,input);assert.equal(m.parts.length,1);checkMesh(m.parts[0]);});
+test('manual arches outside the silhouette are rejected',()=>{const input=image();assert.throws(()=>positionArches(input.labels,input.n,100,{auto:false,spacing:44,x:100,y:22}),/solid artwork/);});
+test('too narrow an outline rejects unsupported arch placement',()=>{const n=96,labels=new Int8Array(n*n);labels.fill(-1);for(let y=10;y<86;y++)for(let x=43;x<53;x++)labels[y*n+x]=0;assert.throws(()=>positionArches(labels,n,50,{auto:true}),/no room/);});
