@@ -1,5 +1,5 @@
 // The geometry path is shared by the Web Worker and the Node verification suite.
-export function traceRegions(labels,n,target,epsilon=.7){
+export function traceRegions(labels,n,target,epsilon=.18){
  const stride=n+1,edges=new Map();
  const inside=(x,y)=>x>=0&&y>=0&&x<n&&y<n&&(target<0?labels[y*n+x]>=0:labels[y*n+x]===target);
  const add=(x,y,xx,yy)=>{const k=y*stride+x,v=yy*stride+xx;if(!edges.has(k))edges.set(k,[]);edges.get(k).push(v);};
@@ -14,9 +14,18 @@ export function traceRegions(labels,n,target,epsilon=.7){
    const next=ns.splice(chosen,1)[0];if(!ns.length)edges.delete(cur);prev=cur;cur=next;if(++guard>n*n*4)throw Error('The artwork outline could not be traced.');
   }while(cur!==start);
   if(cur!==start||loop.length<4)continue;let area=0;for(let i=0;i<loop.length;i++){const a=loop[i],b=loop[(i+1)%loop.length];area+=a[0]*b[1]-b[0]*a[1];}
-  if(Math.abs(area)<12)continue;const half=Math.floor(loop.length/2);const ring=rdp(loop.slice(0,half+1),epsilon).slice(0,-1).concat(rdp(loop.slice(half).concat([loop[0]]),epsilon));ring.pop();if(ring.length>=3)rings.push(ring);
+  if(Math.abs(area)<12)continue;loop=cleanPixelSteps(loop);const half=Math.floor(loop.length/2);const ring=rdp(loop.slice(0,half+1),epsilon).slice(0,-1).concat(rdp(loop.slice(half).concat([loop[0]]),epsilon));ring.pop();if(ring.length>=3)rings.push(ring);
  }
  return rings;
+}
+// Smooth the raw pixel contour before simplification so cleanup affects every
+// outline and color region. Long straight runs retain deliberate sharp corners.
+function cleanPixelSteps(points){
+ const n=points.length,locked=new Uint8Array(n),at=i=>points[(i+n)%n];
+ for(let i=0;i<n;i++){const p=at(i),before=at(i-4),after=at(i+4),a=[p[0]-before[0],p[1]-before[1]],b=[after[0]-p[0],after[1]-p[1]];if(Math.hypot(...a)<3.99||Math.hypot(...b)<3.99)continue;if(a[0]*b[0]+a[1]*b[1]!==0)continue;for(let j=-3;j<=3;j++)locked[(i+j+n)%n]=1;}
+ let ring=points;
+ for(let pass=0;pass<4;pass++){const previous=ring;ring=previous.map((p,i)=>{if(locked[i])return points[i];const a=previous[(i+n-1)%n],b=previous[(i+1)%n];return[(a[0]+2*p[0]+b[0])/4,(a[1]+2*p[1]+b[1])/4];});}
+ return ring;
 }
 function rdp(a,eps){if(a.length<3)return a;const p=a[0],q=a.at(-1),dx=q[0]-p[0],dy=q[1]-p[1],den=dx*dx+dy*dy;let max=0,k=0;for(let i=1;i<a.length-1;i++){const t=den?Math.max(0,Math.min(1,((a[i][0]-p[0])*dx+(a[i][1]-p[1])*dy)/den)):0;const d=(a[i][0]-p[0]-t*dx)**2+(a[i][1]-p[1]-t*dy)**2;if(d>max){max=d;k=i;}}if(max<=eps*eps)return[p,q];return rdp(a.slice(0,k+1),eps).slice(0,-1).concat(rdp(a.slice(k),eps));}
 
