@@ -11,7 +11,7 @@ export function quantizePixels(rgba,maxColors=7,hints=[]){
  return {labels,palette:newColors.map(rgb=> '#'+rgb.map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase())};
 }
 function removeBackground(data,w,h){const seen=new Uint8Array(w*h),queue=[];const corner=[data[0],data[1],data[2]];if(data[3]<128)return;const close=i=>(data[4*i]-corner[0])**2+(data[4*i+1]-corner[1])**2+(data[4*i+2]-corner[2])**2<35**2;for(const i of [0,w-1,(h-1)*w,w*h-1])if(close(i)){queue.push(i);seen[i]=1;}for(let q=0;q<queue.length;q++){const i=queue[q],x=i%w,y=Math.floor(i/w);data[i*4+3]=0;for(const j of [x?i-1:-1,x<w-1?i+1:-1,y?i-w:-1,y<h-1?i+w:-1])if(j>=0&&!seen[j]&&close(j)){seen[j]=1;queue.push(j);}}}
-export async function readArtwork(file,{removeBg=false,n=512}={}){
+export async function readArtwork(file,{removeBg=false,n=768}={}){
  if(file.size>15*1024*1024)throw Error('Choose an image smaller than 15 MB.');let blob=file,originalPalette=[];
  if(/\.svg$/i.test(file.name)||file.type==='image/svg+xml'){
   const doc=new DOMParser().parseFromString(await file.text(),'image/svg+xml');if(doc.querySelector('parsererror')||doc.documentElement.localName!=='svg')throw Error('This SVG could not be read.');

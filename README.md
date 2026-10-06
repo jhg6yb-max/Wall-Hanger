@@ -12,13 +12,13 @@ The included workflow deploys static files directly. It uses relative paths, so 
 
 ## Using the generator
 
-Upload an SVG or image, or try the included original flower example. Adjust artwork size, thickness, edge smoothing, and maximum colors with the sliders. Edge smoothing defaults to 0 mm; try 0.3 mm for rounded outline and color boundaries. Larger values can erase narrow features and tiny regions. Arch dimensions stay fixed; placement accounts for the smoothed outline. Click the palette to change filament colors. Automatic arch placement checks the silhouette at both feet of each arch and prefers positions above the artwork's center of area, with the pair centered near it. Manual placement is available under the collapsed adjustment panel and rejects unsupported feet.
+Upload an SVG or image, or try the included original flower example. Adjust artwork size, thickness, edge smoothing, and maximum colors with the sliders. Pixel-step cleanup runs automatically on the outline and every color boundary, even at 0 mm. The edge smoothing slider adds extra rounding and defaults to 0 mm; try 0.3 mm for rounded outline and color boundaries. Larger values can erase narrow features and tiny regions. Arch dimensions stay fixed; placement accounts for the smoothed outline. Click the palette to change filament colors. Automatic arch placement checks the silhouette at both feet of each arch and prefers positions above the artwork's center of area, with the pair centered near it. Manual placement is available under the collapsed adjustment panel and rejects unsupported feet.
 
 Front shows the artwork as it will appear when hung. Back and 3D show the rear arches. Download **color 3MF** for separate color solids in one assembly, or **single-color STL** for a fused mesh.
 
 ## Geometry and printing
 
-- Artwork size means the longest side of the cropped image, in millimeters. Aspect ratio is preserved. Thin features are approximated at 512 pixels along the longest dimension.
+- Artwork size means the longest side of the cropped image, in millimeters. Aspect ratio is preserved. Thin features are approximated at 768 pixels along the longest dimension.
 - The colorful face lies flat at Z=0. Color inlays are 0.6 mm deep. The backing finishes at the thickness selected by the user, which defaults to 3 mm.
 - Two rear arches use 3 mm diameter round rods, semicircular tops, 4 mm clear openings, and approximately 12 × 5 mm mounting footprints. Their physical dimensions stay fixed when artwork size changes. Foot pads widen to 4.5 mm to join the body.
 - Print with the colored face on the bed and arches above it. The exported geometry is already oriented this way; do not mirror it again.
