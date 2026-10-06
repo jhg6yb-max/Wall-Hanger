@@ -14,7 +14,7 @@ export function traceRegions(labels,n,target,epsilon=.18){
    const next=ns.splice(chosen,1)[0];if(!ns.length)edges.delete(cur);prev=cur;cur=next;if(++guard>n*n*4)throw Error('The artwork outline could not be traced.');
   }while(cur!==start);
   if(cur!==start||loop.length<4)continue;let area=0;for(let i=0;i<loop.length;i++){const a=loop[i],b=loop[(i+1)%loop.length];area+=a[0]*b[1]-b[0]*a[1];}
-  if(Math.abs(area)<12)continue;loop=cleanPixelSteps(loop);const half=Math.floor(loop.length/2);const ring=rdp(loop.slice(0,half+1),epsilon).slice(0,-1).concat(rdp(loop.slice(half).concat([loop[0]]),epsilon));ring.pop();if(ring.length>=3)rings.push(ring);
+  if(Math.abs(area)<12)continue;loop=cleanPixelSteps(loop);const half=Math.floor(loop.length/2);const ring=rdp(loop.slice(0,half+1),epsilon).slice(0,-1).concat(rdp(loop.slice(half).concat([loop[0]]),epsilon));ring.pop();if(ring.length>=3)rings.push(fitSmoothCurve(ring));
  }
  return rings;
 }
@@ -26,6 +26,14 @@ function cleanPixelSteps(points){
  let ring=points;
  for(let pass=0;pass<4;pass++){const previous=ring;ring=previous.map((p,i)=>{if(locked[i])return points[i];const a=previous[(i+n-1)%n],b=previous[(i+1)%n];return[(a[0]+2*p[0]+b[0])/4,(a[1]+2*p[1]+b[1])/4];});}
  return ring;
+}
+// Fit a closed Hermite curve to the cleaned contour and sample it densely.
+// Sharp design corners remain sharp; smooth arcs no longer use large flat chords.
+function fitSmoothCurve(ring){
+ const n=ring.length,tangents=ring.map((p,i)=>{const a=ring[(i+n-1)%n],b=ring[(i+1)%n],u=[p[0]-a[0],p[1]-a[1]],v=[b[0]-p[0],b[1]-p[1]],lu=Math.hypot(...u),lv=Math.hypot(...v);if(!lu||!lv||(u[0]*v[0]+u[1]*v[1])/(lu*lv)<Math.cos(Math.PI/3))return[0,0];const t=[u[0]/lu+v[0]/lv,u[1]/lu+v[1]/lv],length=Math.hypot(...t);return t.map(x=>x/length);});
+ const output=[];
+ for(let i=0;i<n;i++){const a=ring[i],b=ring[(i+1)%n],distance=Math.hypot(b[0]-a[0],b[1]-a[1]),u=tangents[i].map(x=>x*distance),v=tangents[(i+1)%n].map(x=>x*distance),count=Math.max(2,Math.ceil(distance/1.25));for(let j=0;j<count;j++){const t=j/count,t2=t*t,t3=t2*t;output.push([0,1].map(k=>(2*t3-3*t2+1)*a[k]+(t3-2*t2+t)*u[k]+(-2*t3+3*t2)*b[k]+(t3-t2)*v[k]));}}
+ const half=Math.floor(output.length/2);const simplified=rdp(output.slice(0,half+1),.02).slice(0,-1).concat(rdp(output.slice(half).concat([output[0]]),.02));simplified.pop();return simplified;
 }
 function rdp(a,eps){if(a.length<3)return a;const p=a[0],q=a.at(-1),dx=q[0]-p[0],dy=q[1]-p[1],den=dx*dx+dy*dy;let max=0,k=0;for(let i=1;i<a.length-1;i++){const t=den?Math.max(0,Math.min(1,((a[i][0]-p[0])*dx+(a[i][1]-p[1])*dy)/den)):0;const d=(a[i][0]-p[0]-t*dx)**2+(a[i][1]-p[1]-t*dy)**2;if(d>max){max=d;k=i;}}if(max<=eps*eps)return[p,q];return rdp(a.slice(0,k+1),eps).slice(0,-1).concat(rdp(a.slice(k),eps));}
 
