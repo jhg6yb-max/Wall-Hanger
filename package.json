@@ -1,0 +1,23 @@
+{
+  "name": "svg-wall-hanger-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/browser-smoke.mjs"
+  },
+  "dependencies": {
+    "jszip": "3.10.2",
+    "manifold-3d": "3.5.4",
+    "three": "0.186.1",
+    "vite": "8.3.2"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "playwright": "1.63.0",
+    "pngjs": "^7.0.0"
+  }
+}
