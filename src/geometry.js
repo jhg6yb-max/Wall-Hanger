@@ -27,7 +27,7 @@ export function distanceField(labels,n){
  return d;
 }
 export function positionArches(labels,n,size,options={}){
- const d=distanceField(labels,n),ppm=n/size,footR=2.5*ppm+1.25,bend=3.5*ppm;
+ const d=distanceField(labels,n),ppm=n/size,footR=(2.5+(options.smoothing??0))*ppm+1.25,bend=3.5*ppm;
  let sx=0,sy=0,count=0,minX=n,minY=n,maxX=0,maxY=0;
  for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(labels[y*n+x]>=0){sx+=x;sy+=y;count++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
  if(!count)throw Error('No printable artwork was found.');const cx=sx/count,cy=sy/count;
@@ -48,15 +48,18 @@ export function positionArches(labels,n,size,options={}){
  return {centers:best.pair.map(x=>[-(x/n-.5)*size,(.5-best.y/n)*size]),spacing:(best.pair[1]-best.pair[0])/ppm,balanced:true,centroid:[-(cx/n-.5)*size,(.5-cy/n)*size]};
 }
 
-export function buildModel(kernel,{labels,n,palette,size=100,thickness=3,mount={auto:true}},progress=()=>{}){
+export function buildModel(kernel,{labels,n,palette,size=100,thickness=3,smoothing=0,mount={auto:true}},progress=()=>{}){
  const {CrossSection:C,Manifold:M}=kernel,bag=[];const keep=x=>{bag.push(x);return x;};
  const mm=rings=>rings.map(r=>r.map(([x,y])=>[-(x/n-.5)*size,(.5-y/n)*size]));
  try{
-  progress('Finding solid attachment points');const placement=positionArches(labels,n,size,mount);
-  progress('Building color regions');const silhouette=keep(new C(mm(traceRegions(labels,n,-1)),'EvenOdd'));
-  if(silhouette.isEmpty())throw Error('The image has no usable filled outline.');
+  smoothing=Math.max(0,Math.min(2,Number(smoothing)||0));
+  const rounded=shape=>{if(!smoothing||shape.isEmpty())return shape;let x=shape;for(const delta of [smoothing,-smoothing,-smoothing,smoothing]){x=keep(x.offset(delta,'Round',2,32));if(x.isEmpty())break;}return x;};
+  progress('Finding solid attachment points');const placement=positionArches(labels,n,size,{...mount,smoothing});
+  progress('Building color regions');const silhouette=rounded(keep(new C(mm(traceRegions(labels,n,-1)),'EvenOdd')));
+  if(silhouette.isEmpty())throw Error('The image has no usable filled outline. Reduce edge smoothing or increase artwork size.');
+  for(const [x,y] of placement.centers)for(const side of [-1,1]){const pad=keep(keep(C.circle(2.25,32)).translate([x+side*3.5,y]));if(keep(pad.subtract(silhouette)).area()>.001)throw Error('The smoothed outline leaves an arch foot unsupported. Reduce smoothing or adjust placement.');}
   const empty=()=>keep(C.square([0,0]));
-  const allRegions=palette.map((_,i)=>{const rings=traceRegions(labels,n,i);return rings.length?keep(new C(mm(rings),'EvenOdd')):empty();});
+  const allRegions=palette.map((_,i)=>{const rings=traceRegions(labels,n,i);return rings.length?rounded(keep(new C(mm(rings),'EvenOdd'))):empty();});
   // Clip and subtract to ensure materials never overlap even after tracing.
   const regions=[],claimed=empty();let occupied=claimed;
   for(let i=0;i<allRegions.length;i++){const clipped=keep(allRegions[i].intersect(silhouette));const region=keep(clipped.subtract(occupied));regions.push(region);occupied=keep(occupied.add(region));}
@@ -69,9 +72,10 @@ export function buildModel(kernel,{labels,n,palette,size=100,thickness=3,mount={
   }
   const body=keep(M.union(pieces));const solids=[body,...regions.slice(1).map(r=>keep(r.extrude(inlayDepth)))];
   const parts=[];let totalVolume=0;for(let i=0;i<solids.length;i++){const s=solids[i];if(s.isEmpty())continue;const status=s.status();if(status!=='NoError')throw Error('Geometry check failed: '+status);const volume=s.volume();if(volume<=0)throw Error('A printable region has invalid volume.');const m=s.getMesh();parts.push({name:i===0?'Body and rear arches':'Color '+(i+1),color:palette[i],positions:new Float32Array(m.vertProperties),triangles:new Uint32Array(m.triVerts),volume});totalVolume+=volume;}
-  const fused=keep(M.union(solids));if(fused.status()!=='NoError')throw Error('The assembled mesh did not pass the geometry check.');const fusedMesh=fused.getMesh();
+  // Build the single-color shell directly to avoid coincident material interfaces.
+  const solidBacking=keep(silhouette.extrude(thickness));const fused=keep(M.union([solidBacking,...pieces.slice(2)]));if(fused.status()!=='NoError')throw Error('The assembled mesh did not pass the geometry check.');const fusedMesh=fused.getMesh();
   const stlMesh={positions:new Float32Array(fusedMesh.vertProperties),triangles:new Uint32Array(fusedMesh.triVerts)};
   const meshParts=body.decompose();for(const x of meshParts)bag.push(x);const bounds=body.boundingBox();
-  return {parts,stlMesh,placement,bounds,volume:totalVolume,components:meshParts.length,inlayDepth};
+  return {parts,stlMesh,placement,bounds,volume:totalVolume,components:meshParts.length,inlayDepth,smoothing};
  }finally{for(let i=bag.length-1;i>=0;i--){try{bag[i].delete();}catch{}}}
 }
